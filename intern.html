@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slider-Crank Mechanism Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@500;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        input[type=range] {
+            accent-color: #3b82f6;
+        }
+
+        .math-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .formula-display {
+            background-color: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-family: serif;
+            font-style: italic;
+            font-size: 1.1rem;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Slider-Crank Mechanism</h1>
+            <div class="flex items-center gap-3">
+                <button id="playPauseBtn" class="flex items-center gap-2 px-6 py-2.5 rounded-full font-bold transition-all bg-amber-100 text-amber-700 hover:bg-amber-200">
+                    <span id="playPauseIcon">⏸</span> <span id="playPauseText">Pause</span>
+                </button>
+                <button id="resetBtn" class="p-3 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 transition-all shadow-sm">
+                    ↺
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <!-- Controls Sidebar -->
+            <div class="lg:col-span-1 space-y-6">
+                <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+                    <h2 class="font-bold flex items-center gap-2 text-slate-900 text-lg">
+                        ⚙️ Configuration
+                    </h2>
+                    <div class="space-y-5">
+                        <!-- Crank Radius -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm font-semibold">
+                                <span class="text-slate-600">Crank Radius (r)</span>
+                                <span id="rVal" class="mono text-slate-900">60</span>
+                            </div>
+                            <input type="range" id="crankInput" min="20" max="110" value="60" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <!-- Rod Length -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm font-semibold">
+                                <span class="text-slate-600">Rod Length (l)</span>
+                                <span id="lVal" class="mono text-slate-900">150</span>
+                            </div>
+                            <input type="range" id="rodInput" min="120" max="300" value="150" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <!-- Speed -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm font-semibold">
+                                <span class="text-slate-600">Ang. Velocity (ω)</span>
+                                <span id="wVal" class="mono text-slate-900">2.0</span>
+                            </div>
+                            <input type="range" id="speedInput" min="0" max="10" step="0.1" value="2" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-3 cursor-pointer pt-4 border-t border-slate-100">
+                        <input type="checkbox" id="traceToggle" checked class="w-5 h-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500">
+                        <span class="text-sm font-semibold text-slate-700">Visualize Crank Path</span>
+                    </label>
+                </section>
+            </div>
+
+            <!-- Main Display Area -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- Visualizer -->
+                <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                    <canvas id="mechanismCanvas" width="800" height="380" class="w-full h-auto bg-slate-50/50 rounded-2xl"></canvas>
+                </div>
+
+                <!-- Mathematical Analysis Section -->
+                <section class="math-card p-6 space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                        <h2 class="font-bold text-xl flex items-center gap-2 text-slate-900">
+                            Σ Mathematical Analysis
+                        </h2>
+                        <div class="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold uppercase tracking-widest">Exact Computation</div>
+                    </div>
+
+                    <!-- Formulas Section (Added before Instantaneous Values) -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Position Formula</h3>
+                            <div class="formula-display text-slate-700">
+                                x = r cos θ + √(l² - (r sin θ)²)
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Velocity Formula</h3>
+                            <div class="formula-display text-slate-700">
+                                v = -rω [sin θ + (r sin 2θ) / (2√(l² - r² sin² θ))]
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Instantaneous Values</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm">
+                                <p class="text-xs font-bold text-slate-400 mb-1">Crank Angle (θ)</p>
+                                <p id="thetaDisplay" class="text-xl font-bold text-indigo-600 mono">0.0000°</p>
+                            </div>
+                            <div class="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm">
+                                <p class="text-xs font-bold text-slate-400 mb-1">Angular Speed (ω)</p>
+                                <p id="omegaDisplay" class="text-xl font-bold text-amber-600 mono">2.00</p>
+                            </div>
+                            <div class="bg-indigo-600 p-4 rounded-2xl shadow-lg text-white">
+                                <p class="text-xs font-bold text-indigo-100 mb-1">Displacement (x)</p>
+                                <p id="xDisplay" class="text-xl font-bold tracking-tighter mono">0.000000</p>
+                            </div>
+                            <div class="bg-emerald-600 p-4 rounded-2xl shadow-lg text-white">
+                                <p class="text-xs font-bold text-emerald-100 mb-1">Velocity (v)</p>
+                                <p id="vDisplay" class="text-xl font-bold tracking-tighter mono">0.000000</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Trends -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Displacement Trend</h3>
+                        <div id="xGraph" class="h-28 flex items-end gap-[1px]"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Velocity Gradient</h3>
+                        <div id="vGraph" class="h-28 flex items-center gap-[1px] relative">
+                            <div class="absolute w-full h-[1px] bg-slate-100 top-1/2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State variables
+        let crankRadiusVal = 60;
+        let rodLengthVal = 150;
+        let omegaVal = 2.0;
+        let isSimPlaying = true;
+        let isTraceOn = true;
+        let currentAngle = 0;
+        let simHistory = [];
+        const HISTORY_LIMIT = 150;
+
+        // Elements
+        const canvas = document.getElementById('mechanismCanvas');
+        const ctx = canvas.getContext('2d');
+        const xGraph = document.getElementById('xGraph');
+        const vGraph = document.getElementById('vGraph');
+
+        // Inputs
+        const crankInput = document.getElementById('crankInput');
+        const rodInput = document.getElementById('rodInput');
+        const speedInput = document.getElementById('speedInput');
+        const traceToggle = document.getElementById('traceToggle');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // Displays
+        const rValDisp = document.getElementById('rVal');
+        const lValDisp = document.getElementById('lVal');
+        const wValDisp = document.getElementById('wVal');
+        const thetaDisplay = document.getElementById('thetaDisplay');
+        const omegaDisplay = document.getElementById('omegaDisplay');
+        const xDisplay = document.getElementById('xDisplay');
+        const vDisplay = document.getElementById('vDisplay');
+
+        // Logic
+        function calculateKinematics(th) {
+            const x = crankRadiusVal * Math.cos(th) + Math.sqrt(Math.pow(rodLengthVal, 2) - Math.pow(crankRadiusVal * Math.sin(th), 2));
+            const sinTh = Math.sin(th);
+            const v = -crankRadiusVal * omegaVal * (sinTh + (crankRadiusVal * Math.sin(2 * th)) / (2 * Math.sqrt(Math.pow(rodLengthVal, 2) - Math.pow(crankRadiusVal * sinTh, 2))));
+            return { x, v };
+        }
+
+        function updateGraphs() {
+            // Update X Graph
+            xGraph.innerHTML = '';
+            simHistory.forEach(d => {
+                const bar = document.createElement('div');
+                bar.className = 'flex-1 bg-indigo-500/20 border-t-2 border-indigo-500';
+                const height = ((d.x - (rodLengthVal - crankRadiusVal)) / (crankRadiusVal * 2)) * 100;
+                bar.style.height = `${Math.max(2, height)}%`;
+                xGraph.appendChild(bar);
+            });
+
+            // Update V Graph
+            vGraph.innerHTML = '<div class="absolute w-full h-[1px] bg-slate-100 top-1/2"></div>';
+            simHistory.forEach(d => {
+                const normV = (d.v / (crankRadiusVal * (omegaVal || 1)));
+                const bar = document.createElement('div');
+                bar.className = `flex-1 ${normV > 0 ? 'bg-emerald-500/30' : 'bg-rose-500/30'}`;
+                bar.style.height = `${Math.abs(normV) * 48}%`;
+                bar.style.transform = normV > 0 ? 'translateY(-50%)' : 'translateY(50%)';
+                vGraph.appendChild(bar);
+            });
+        }
+
+        function draw() {
+            const width = canvas.width;
+            const height = canvas.height;
+            const offsetX = width / 4;
+            const offsetY = height / 2;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const x1 = crankRadiusVal * Math.cos(currentAngle);
+            const y1 = crankRadiusVal * Math.sin(currentAngle);
+            const { x: xPos, v: vPos } = calculateKinematics(currentAngle);
+
+            // Update Readouts
+            thetaDisplay.innerText = (currentAngle * 180 / Math.PI).toFixed(4) + '°';
+            omegaDisplay.innerText = omegaVal.toFixed(2);
+            xDisplay.innerText = xPos.toFixed(6);
+            vDisplay.innerText = vPos.toFixed(6);
+
+            // Ground Line
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, offsetY);
+            ctx.lineTo(width, offsetY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Trace
+            if (isTraceOn) {
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.1)';
+                ctx.arc(offsetX, offsetY, crankRadiusVal, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Ground Box
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(offsetX - 12, offsetY - 12, 24, 24);
+
+            // Mechanism
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // Crank
+            ctx.strokeStyle = '#3b82f6';
+            ctx.beginPath();
+            ctx.moveTo(offsetX, offsetY);
+            ctx.lineTo(offsetX + x1, offsetY - y1);
+            ctx.stroke();
+
+            // Connecting Rod
+            ctx.strokeStyle = '#10b981';
+            ctx.beginPath();
+            ctx.moveTo(offsetX + x1, offsetY - y1);
+            ctx.lineTo(offsetX + xPos, offsetY);
+            ctx.stroke();
+
+            // Slider
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(offsetX + xPos - 30, offsetY - 20, 60, 40);
+
+            // Joints
+            ctx.fillStyle = '#0f172a';
+            [[offsetX, offsetY], [offsetX + x1, offsetY - y1], [offsetX + xPos, offsetY]].forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p[0], p[1], 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+            // On-canvas labels
+            ctx.font = '600 12px ui-sans-serif, system-ui';
+            ctx.fillStyle = '#475569';
+            ctx.fillText(`θ: ${(currentAngle * 180 / Math.PI).toFixed(1)}°`, offsetX - 20, offsetY + 50);
+            ctx.fillText(`x: ${xPos.toFixed(2)}`, offsetX + xPos - 25, offsetY + 50);
+        }
+
+        let lastTimestamp = 0;
+        function animate(time) {
+            if (isSimPlaying) {
+                const dt = (time - lastTimestamp) / 1000;
+                currentAngle = (currentAngle + omegaVal * (dt || 0)) % (Math.PI * 2);
+                
+                const data = calculateKinematics(currentAngle);
+                simHistory.push(data);
+                if (simHistory.length > HISTORY_LIMIT) simHistory.shift();
+                
+                updateGraphs();
+            }
+            lastTimestamp = time;
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        // Event Listeners
+        crankInput.addEventListener('input', (e) => {
+            crankRadiusVal = parseInt(e.target.value);
+            rValDisp.innerText = crankRadiusVal;
+            rodInput.min = crankRadiusVal + 10;
+            if (rodLengthVal < crankRadiusVal + 10) {
+                rodLengthVal = crankRadiusVal + 10;
+                rodInput.value = rodLengthVal;
+                lValDisp.innerText = rodLengthVal;
+            }
+        });
+
+        rodInput.addEventListener('input', (e) => {
+            rodLengthVal = parseInt(e.target.value);
+            lValDisp.innerText = rodLengthVal;
+        });
+
+        speedInput.addEventListener('input', (e) => {
+            omegaVal = parseFloat(e.target.value);
+            wValDisp.innerText = omegaVal.toFixed(1);
+        });
+
+        traceToggle.addEventListener('change', (e) => {
+            isTraceOn = e.target.checked;
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            isSimPlaying = !isSimPlaying;
+            document.getElementById('playPauseIcon').innerText = isSimPlaying ? '⏸' : '▶';
+            document.getElementById('playPauseText').innerText = isSimPlaying ? 'Pause' : 'Resume';
+            playPauseBtn.classList.toggle('bg-amber-100', isSimPlaying);
+            playPauseBtn.classList.toggle('text-amber-700', isSimPlaying);
+            playPauseBtn.classList.toggle('bg-emerald-100', !isSimPlaying);
+            playPauseBtn.classList.toggle('text-emerald-700', !isSimPlaying);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            currentAngle = 0;
+            simHistory = [];
+            updateGraphs();
+        });
+
+        // Initialize animation
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+</html>
