@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4-Cylinder Radial Engine Simulation</title>
+    <style>
+        :root {
+            --bg: #f3f4f6;
+            --card: #ffffff;
+            --primary: #4f83e1;
+            --secondary: #38a885;
+            --accent: #d1615d;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --mono: 'JetBrains Mono', 'Courier New', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        header {
+            background: var(--card);
+            padding: 16px 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 { font-size: 1.1rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        @media (min-width: 1024px) {
+            .layout { grid-template-columns: 300px 1fr; }
+        }
+
+        .card {
+            background: var(--card);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .telemetry-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #4b5563;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            letter-spacing: 0.05em;
+        }
+
+        h2 { font-size: 0.75rem; font-weight: 700; margin-bottom: 16px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.1em; }
+
+        .control-group { margin-bottom: 20px; }
+        .control-label { display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 600; margin-bottom: 8px; }
+        .value-tag { font-family: var(--mono); color: var(--primary); font-weight: 700; }
+
+        .omega-input-wrapper {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        input[type=number] {
+            width: 70px;
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+            height: 5px;
+            background: var(--border);
+            border-radius: 10px;
+            appearance: none;
+            accent-color: var(--primary);
+        }
+
+        canvas { width: 100%; height: auto; background: #ffffff; border-radius: 8px; border: 1px solid var(--border); }
+
+        .button-group { display: flex; gap: 10px; align-items: center; }
+        button { padding: 8px 20px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; font-size: 0.85rem; }
+        .btn-pause { background: #fee2e2; color: #991b1b; }
+        .btn-play { background: #dcfce7; color: #166534; }
+        .btn-reset { background: #f3f4f6; color: #4b5563; border: 1px solid var(--border); width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+
+        /* Stats Grid - Matches Screenshot */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        @media (min-width: 640px) { .stats-grid { grid-template-columns: repeat(5, 1fr); } }
+
+        .stat-card {
+            padding: 20px 16px;
+            border-radius: 12px;
+            background: #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .stat-card.blue { background: var(--primary); color: white; }
+        .stat-card.teal { background: var(--secondary); color: white; }
+        .stat-card.red { background: var(--accent); color: white; }
+
+        .stat-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+        .stat-value { font-family: var(--mono); font-size: 1.25rem; font-weight: 700; }
+
+        /* Graphs Grid - Matches Screenshot */
+        .graphs-labels {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            margin-bottom: 8px;
+        }
+
+        .graph-title { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; }
+
+        .graphs-display {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            height: 120px;
+        }
+
+        .graph-box {
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            gap: 1px;
+            border-bottom: 1px solid #d1d5db;
+            height: 100%;
+        }
+
+        .bar-col { flex: 1; height: 100%; display: flex; flex-direction: column; }
+        .bar-half { height: 50%; width: 100%; display: flex; flex-direction: column; }
+        .bar-half.up { justify-content: flex-end; }
+        .bar-fill { width: 100%; min-width: 1px; }
+
+        .zero-line {
+            position: absolute;
+            width: 100%;
+            height: 1px;
+            background: #d1d5db;
+            top: 50%;
+            left: 0;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>4-Cylinder Radial Engine Simulation</h1>
+        <div class="button-group">
+            <button id="toggleBtn" class="btn-pause">Pause</button>
+            <button id="resetBtn" class="btn-reset" title="Reset Simulation">↺</button>
+        </div>
+    </header>
+
+    <div class="layout">
+        <div class="card">
+            <h2>⚙️ System Parameters</h2>
+            <div class="control-group">
+                <div class="control-label"><span>Crank Radius (r)</span> <span id="rVal" class="value-tag">60</span></div>
+                <input type="range" id="rIn" min="20" max="100" value="60">
+            </div>
+            <div class="control-group">
+                <div class="control-label"><span>Rod Length (l)</span> <span id="lVal" class="value-tag">150</span></div>
+                <input type="range" id="lIn" min="110" max="250" value="150">
+            </div>
+            <div class="control-group">
+                <div class="control-label"><span>Angular Velocity (ω)</span></div>
+                <div class="omega-input-wrapper">
+                    <input type="range" id="wIn" min="0" max="15" step="0.1" value="2">
+                    <input type="number" id="wNum" step="0.1" value="2.0">
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border); padding-top: 20px;">
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 0.8rem; cursor: pointer; font-weight: 600;">
+                    <input type="checkbox" id="traceIn" checked> Display Cycle Trace
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 0.8rem; cursor: pointer; font-weight: 600;">
+                    <input type="checkbox" id="labelsIn" checked> Part Annotations
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px; font-size: 0.8rem; cursor: pointer; font-weight: 600;">
+                    <input type="checkbox" id="vectorsIn"> Kinematic Vectors
+                </label>
+            </div>
+        </div>
+
+        <div>
+            <div class="card" style="padding: 12px; margin-bottom: 24px;">
+                <canvas id="engineCvs" width="800" height="550"></canvas>
+            </div>
+
+            <div class="card" style="background: #e5e7eb88;">
+                <div class="telemetry-header">📊 Live Telemetry (Primary Piston)</div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Angle (θ)</div>
+                        <div id="readoutTheta" class="stat-value">0.00°</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Angular Ω</div>
+                        <div id="readoutOmega" class="stat-value">2.00</div>
+                    </div>
+                    <div class="stat-card blue">
+                        <div class="stat-label">Position (X)</div>
+                        <div id="readoutX" class="stat-value">0.0000</div>
+                    </div>
+                    <div class="stat-card teal">
+                        <div class="stat-label">Velocity (V)</div>
+                        <div id="readoutV" class="stat-value">0.0000</div>
+                    </div>
+                    <div class="stat-card red">
+                        <div class="stat-label">Accel (A)</div>
+                        <div id="readoutA" class="stat-value">0.0000</div>
+                    </div>
+                </div>
+
+                <div class="graphs-labels">
+                    <div class="graph-title">Displacement Trend</div>
+                    <div class="graph-title">Velocity Gradient</div>
+                    <div class="graph-title">Acceleration Profile</div>
+                </div>
+                <div class="graphs-display">
+                    <div id="graphX" class="graph-box"></div>
+                    <div id="graphV" class="graph-box"><div class="zero-line"></div></div>
+                    <div id="graphA" class="graph-box"><div class="zero-line"></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let crankR = 60;
+    let rodL = 150;
+    let omegaW = 2.0;
+    let activeSim = true;
+    let traceShown = true;
+    let labelShown = true;
+    let vectorShown = false;
+    let thetaRad = 0;
+    let dataLog = [];
+    const LOG_LIMIT = 120;
+
+    const colors = { primary: '#4f83e1', secondary: '#38a885', accent: '#d1615d' };
+    const cvs = document.getElementById('engineCvs');
+    const ctx = cvs.getContext('2d');
+
+    function getDynamics(th) {
+        const r = crankR, l = rodL, w = omegaW;
+        const sinTh = Math.sin(th), cosTh = Math.cos(th);
+        const radical = Math.sqrt(l * l - r * r * sinTh * sinTh);
+        const x = r * cosTh + radical;
+        const v = -r * w * (sinTh + (r * Math.sin(2 * th)) / (2 * radical));
+        const a = -r * w * w * (cosTh + (r * Math.cos(2 * th)) / radical + (Math.pow(r, 3) * Math.pow(Math.sin(2 * th), 2)) / (4 * Math.pow(radical, 3)));
+        return { x, v, a };
+    }
+
+    function updateUI(mainPiston) {
+        document.getElementById('readoutTheta').innerText = (thetaRad * 180 / Math.PI).toFixed(2) + '°';
+        document.getElementById('readoutOmega').innerText = omegaW.toFixed(2);
+        document.getElementById('readoutX').innerText = mainPiston.x.toFixed(4);
+        document.getElementById('readoutV').innerText = mainPiston.v.toFixed(4);
+        document.getElementById('readoutA').innerText = mainPiston.a.toFixed(4);
+
+        let hX = '', hV = '<div class="zero-line"></div>', hA = '<div class="zero-line"></div>';
+        const maxA = Math.pow(omegaW, 2) * crankR * (1 + (crankR/rodL)) * 1.1;
+        const maxV = crankR * omegaW * 1.2;
+
+        dataLog.forEach(d => {
+            const pctX = ((d.x - (rodL - crankR)) / (crankR * 2)) * 100;
+            hX += `<div class="bar-col"><div class="bar-fill" style="height:${Math.max(1, pctX)}%; background:${colors.primary}66; border-top:1px solid ${colors.primary}"></div></div>`;
+            
+            const nV = d.v / (maxV || 1);
+            const vH = Math.abs(nV) * 100;
+            hV += `<div class="bar-col">
+                <div class="bar-half up">${nV > 0 ? `<div class="bar-fill" style="height:${vH}%; background:${colors.secondary}88;"></div>` : ''}</div>
+                <div class="bar-half down">${nV < 0 ? `<div class="bar-fill" style="height:${vH}%; background:${colors.accent}88;"></div>` : ''}</div>
+            </div>`;
+            
+            const nA = d.a / (maxA || 1);
+            const aH = Math.abs(nA) * 100;
+            hA += `<div class="bar-col">
+                <div class="bar-half up">${nA > 0 ? `<div class="bar-fill" style="height:${aH}%; background:${colors.accent}88;"></div>` : ''}</div>
+                <div class="bar-half down">${nA < 0 ? `<div class="bar-fill" style="height:${aH}%; background:${colors.primary}88;"></div>` : ''}</div>
+            </div>`;
+        });
+        document.getElementById('graphX').innerHTML = hX;
+        document.getElementById('graphV').innerHTML = hV;
+        document.getElementById('graphA').innerHTML = hA;
+    }
+
+    function drawArrow(x, y, dx, dy, color, label) {
+        if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+        ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx, y + dy); ctx.stroke();
+        const angle = Math.atan2(dy, dx);
+        ctx.beginPath(); ctx.moveTo(x + dx, y + dy);
+        ctx.lineTo(x + dx - 8 * Math.cos(angle - Math.PI / 6), y + dy - 8 * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(x + dx - 8 * Math.cos(angle + Math.PI / 6), y + dy - 8 * Math.sin(angle + Math.PI / 6));
+        ctx.closePath(); ctx.fill();
+        if (label) { ctx.font = "bold 11px sans-serif"; ctx.fillText(label, x + dx + 6, y + dy + 4); }
+    }
+
+    function render() {
+        const W = cvs.width, H = cvs.height, CX = W / 2, CY = H / 2;
+        ctx.clearRect(0,0,W,H);
+        const px = crankR * Math.cos(thetaRad), py = crankR * Math.sin(thetaRad);
+        const offsets = [0, Math.PI/2, Math.PI, 3*Math.PI/2];
+
+        if (traceShown) {
+            ctx.beginPath(); ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1; ctx.setLineDash([10, 5]);
+            ctx.arc(CX, CY, crankR, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        offsets.forEach((offset, i) => {
+            const relA = thetaRad - offset, d = getDynamics(relA);
+            const ux = Math.cos(offset), uy = -Math.sin(offset);
+            const pistX = CX + d.x * ux, pistY = CY + d.x * uy, pinX = CX + px, pinY = CY - py;
+
+            ctx.strokeStyle = '#f9fafb'; ctx.lineWidth = 44;
+            ctx.beginPath(); ctx.moveTo(CX + (crankR+10)*ux, CY + (crankR+10)*uy); ctx.lineTo(CX + (rodL+crankR+30)*ux, CY + (rodL+crankR+30)*uy); ctx.stroke();
+
+            ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.strokeStyle = i === 0 ? colors.primary : '#9ca3af';
+            ctx.beginPath(); ctx.moveTo(pinX, pinY); ctx.lineTo(pistX, pistY); ctx.stroke();
+
+            ctx.fillStyle = i === 0 ? colors.accent : '#9ca3af';
+            ctx.save(); ctx.translate(pistX, pistY); ctx.rotate(-offset);
+            ctx.fillRect(-20, -15, 40, 30); ctx.restore();
+
+            if (i === 0) {
+                if (labelShown) {
+                    ctx.fillStyle = "#6b7280"; ctx.font = "bold 11px sans-serif";
+                    ctx.fillText("CRANK ARM", CX + px/2 - 30, CY - py/2 - 15);
+                    ctx.fillText("CONNECTING ROD", (pinX+pistX)/2 + 10, (pinY+pistY)/2 + 4);
+                    ctx.fillStyle = colors.accent; ctx.fillText("PRIMARY PISTON", pistX - 40, pistY - 25);
+                }
+                if (vectorShown) {
+                    drawArrow(pistX, pistY, d.v * 15, 0, colors.secondary, "v");
+                    drawArrow(pistX, pistY + 20, d.a * 5, 0, colors.primary, "a");
+                }
+            }
+        });
+
+        ctx.lineWidth = 10; ctx.strokeStyle = colors.primary; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(CX, CY); ctx.lineTo(CX + px, CY - py); ctx.stroke();
+        ctx.fillStyle = '#1f2937'; ctx.beginPath(); ctx.arc(CX, CY, 15, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(CX, CY, 5, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#111827'; ctx.beginPath(); ctx.arc(CX + px, CY - py, 6, 0, Math.PI*2); ctx.fill();
+    }
+
+    let prevTime = 0;
+    function loop(t) {
+        if (activeSim) {
+            const dt = (t - prevTime) / 1000;
+            thetaRad = (thetaRad + omegaW * (dt || 0)) % (Math.PI * 2);
+            const main = getDynamics(thetaRad);
+            dataLog.push(main); if (dataLog.length > LOG_LIMIT) dataLog.shift();
+            updateUI(main);
+        }
+        prevTime = t; render(); requestAnimationFrame(loop);
+    }
+
+    const rIn = document.getElementById('rIn'), lIn = document.getElementById('lIn'), wIn = document.getElementById('wIn'), wNum = document.getElementById('wNum');
+    rIn.oninput = e => { crankR = parseInt(e.target.value); document.getElementById('rVal').innerText = crankR; lIn.min = crankR + 10; };
+    lIn.oninput = e => { rodL = parseInt(e.target.value); document.getElementById('lVal').innerText = rodL; };
+    
+    // Synced omega inputs
+    wIn.oninput = e => { omegaW = parseFloat(e.target.value); wNum.value = omegaW.toFixed(1); };
+    wNum.oninput = e => { 
+        let val = parseFloat(e.target.value);
+        if (!isNaN(val)) {
+            omegaW = val;
+            wIn.value = val;
+        }
+    };
+
+    document.getElementById('traceIn').onchange = e => traceShown = e.target.checked;
+    document.getElementById('labelsIn').onchange = e => labelShown = e.target.checked;
+    document.getElementById('vectorsIn').onchange = e => vectorShown = e.target.checked;
+    document.getElementById('toggleBtn').onclick = function() {
+        activeSim = !activeSim; this.innerText = activeSim ? 'Pause' : 'Resume';
+        this.className = activeSim ? 'btn-pause' : 'btn-play';
+    };
+    document.getElementById('resetBtn').onclick = () => { thetaRad = 0; dataLog = []; };
+
+    requestAnimationFrame(loop);
+</script>
+</body>
+</html>
